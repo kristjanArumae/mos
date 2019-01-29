@@ -164,7 +164,7 @@ def evaluate(data_source, batch_size=10):
     ntokens = len(corpus.dictionary)
     hidden = model.init_hidden(batch_size)
     with torch.no_grad():
-        for i in range(0, data_source.size(0) - 1, args.bptt):
+        for i in range(0, data_source[0].size(0) - 1, args.bptt):
             data, targets = get_batch(data_source, i, args)
             targets = targets.view(-1)
 
