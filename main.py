@@ -57,7 +57,7 @@ parser.add_argument('--seed', type=int, default=1111,
 parser.add_argument('--nonmono', type=int, default=5,
                     help='random seed')
 parser.add_argument('--cuda', action='store_false',
-                    help='use CUDA')
+                    help='use CUDA', default=None)
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
 parser.add_argument('--save', type=str,  default='EXP',
@@ -80,6 +80,11 @@ parser.add_argument('--max_seq_len_delta', type=int, default=40,
                     help='max sequence length')
 parser.add_argument('--single_gpu', default=False, action='store_true', 
                     help='use single GPU')
+
+parser.add_argument('--num_factors', type=int, default=10,
+                    help='number of softmax components')
+parser.add_argument('--num_symbols', type=int, default=10,
+                    help='number of softmax components')
 args = parser.parse_args()
 
 if args.nhidlast < 0:
@@ -92,6 +97,7 @@ if args.small_batch_size < 0:
 if not args.continue_train:
     args.save = '{}-{}'.format(args.save, time.strftime("%Y%m%d-%H%M%S"))
     create_exp_dir(args.save, scripts_to_save=['main.py', 'model.py'])
+
 
 def logging(s, print_=True, log_=True):
     if print_:
@@ -113,7 +119,7 @@ if torch.cuda.is_available():
 # Load data
 ###############################################################################
 
-corpus = data.Corpus(args.data)
+corpus = data.Corpus(args)
 
 eval_batch_size = 10
 test_batch_size = 1
@@ -129,7 +135,7 @@ ntokens = len(corpus.dictionary)
 if args.continue_train:
     model = torch.load(os.path.join(args.save, 'model.pt'))
 else:
-    model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nhidlast, args.nlayers, 
+    model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.num_factors * args.num_symbols, args.nlayers, args.num_factors,
                        args.dropout, args.dropouth, args.dropouti, args.dropoute, args.wdrop, 
                        args.tied, args.dropoutl, args.n_experts)
 
@@ -180,7 +186,7 @@ def train():
     ntokens = len(corpus.dictionary)
     hidden = [model.init_hidden(args.small_batch_size) for _ in range(args.batch_size // args.small_batch_size)]
     batch, i = 0, 0
-    while i < train_data.size(0) - 1 - 1:
+    while i < train_data[0].size(0) - 1 - 1:
         bptt = args.bptt if np.random.random() < 0.95 else args.bptt / 2.
         # Prevent excessively small or negative sequence lengths
         seq_len = max(5, int(np.random.normal(bptt, 5)))
@@ -196,14 +202,14 @@ def train():
 
         start, end, s_id = 0, args.small_batch_size, 0
         while start < args.batch_size:
-            cur_data, cur_targets = data[:, start: end], targets[:, start: end].contiguous().view(-1)
+            cur_data, cur_targets = data[:, start: end], targets[:, start: end]
 
             # Starting each batch, we detach the hidden state from how it was previously produced.
             # If we didn't, the model would try backpropagating all the way to start of the dataset.
             hidden[s_id] = repackage_hidden(hidden[s_id])
 
             log_prob, hidden[s_id], rnn_hs, dropped_rnn_hs = parallel_model(cur_data, hidden[s_id], return_h=True)
-            raw_loss = nn.functional.nll_loss(log_prob.view(-1, log_prob.size(2)), cur_targets)
+            raw_loss = nn.functional.nll_loss(log_prob, cur_targets.view(-1))
 
             loss = raw_loss
             # Activiation Regularization

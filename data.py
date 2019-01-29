@@ -2,6 +2,7 @@ import os
 import torch
 
 from collections import Counter
+from utils import convert_to_base
 
 
 class Dictionary(object):
@@ -25,8 +26,11 @@ class Dictionary(object):
 
 
 class Corpus(object):
-    def __init__(self, path):
+    def __init__(self, args):
         self.dictionary = Dictionary()
+        self.args = args
+        path = args.data
+
         self.train = self.tokenize(os.path.join(path, 'train.txt'))
         self.valid = self.tokenize(os.path.join(path, 'valid.txt'))
         self.test = self.tokenize(os.path.join(path, 'test.txt'))
@@ -45,7 +49,8 @@ class Corpus(object):
 
         # Tokenize file content
         with open(path, 'r', encoding='utf-8') as f:
-            ids = torch.LongTensor(tokens)
+            # ids = torch.LongTensor(tokens)
+            ids = [0] * tokens
             token = 0
             for line in f:
                 words = line.split() + ['<eos>']
@@ -53,7 +58,8 @@ class Corpus(object):
                     ids[token] = self.dictionary.word2idx[word]
                     token += 1
 
-        return ids
+        return torch.LongTensor(ids), torch.LongTensor(convert_to_base(ids, self.args.num_symbols, self.args.num_factors))
+
 
 class SentCorpus(object):
     def __init__(self, path):
