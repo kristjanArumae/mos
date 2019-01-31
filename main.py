@@ -28,7 +28,7 @@ parser.add_argument('--nhidlast', type=int, default=-1,
                     help='number of hidden units for the last rnn layer')
 parser.add_argument('--nlayers', type=int, default=3,
                     help='number of layers')
-parser.add_argument('--lr', type=float, default=30,
+parser.add_argument('--lr', type=float, default=0.01,
                     help='initial learning rate')
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
@@ -57,7 +57,7 @@ parser.add_argument('--seed', type=int, default=1111,
 parser.add_argument('--nonmono', type=int, default=5,
                     help='random seed')
 parser.add_argument('--cuda', action='store_false',
-                    help='use CUDA', default=None)
+                    help='use CUDA', default="true")
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
 parser.add_argument('--save', type=str,  default='EXP',
@@ -114,7 +114,8 @@ if torch.cuda.is_available():
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
     else:
         torch.cuda.manual_seed_all(args.seed)
-
+else:
+    args.cuda = None
 ###############################################################################
 # Load data
 ###############################################################################
@@ -169,7 +170,7 @@ def evaluate(data_source, batch_size=10):
             targets = targets.view(-1)
 
             log_prob, hidden = parallel_model(data, hidden)
-            loss = nn.functional.nll_loss(log_prob.view(-1, log_prob.size(2)), targets).data
+            loss = nn.functional.nll_loss(log_prob, targets).data
 
             total_loss += loss * len(data)
 
@@ -237,8 +238,8 @@ def train():
             elapsed = time.time() - start_time
             logging('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
                     'loss {:5.2f} | ppl {:8.2f}'.format(
-                epoch, batch, len(train_data) // args.bptt, optimizer.param_groups[0]['lr'],
-                elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
+                epoch, batch, len(train_data[0]) // args.bptt, optimizer.param_groups[0]['lr'],
+                elapsed * 1000 / args.log_interval, cur_loss, cur_loss))
             total_loss = 0
             start_time = time.time()
         ###
@@ -275,7 +276,7 @@ try:
             logging('-' * 89)
             logging('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                     'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
-                                               val_loss2, math.exp(val_loss2)))
+                                               val_loss2, val_loss2))
             logging('-' * 89)
 
             if val_loss2 < stored_loss:
@@ -291,7 +292,7 @@ try:
             logging('-' * 89)
             logging('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                     'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
-                                               val_loss, math.exp(val_loss)))
+                                               val_loss, val_loss))
             logging('-' * 89)
 
             if val_loss < stored_loss:
@@ -317,5 +318,5 @@ parallel_model = nn.DataParallel(model, dim=1).cuda()
 test_loss = evaluate(test_data, test_batch_size)
 logging('=' * 89)
 logging('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
-    test_loss, math.exp(test_loss)))
+    test_loss, test_loss))
 logging('=' * 89)
