@@ -73,8 +73,8 @@ def convert_to_base(x_ls, num_symb, num_factors):
 
         extended_item.reverse()
         padding = [0] * (num_factors - len(extended_item))
-        extended_item.extend(padding)
+        padding.extend(extended_item)
 
-        modified_ls.append(extended_item)
+        modified_ls.append(padding)
 
     return modified_ls
