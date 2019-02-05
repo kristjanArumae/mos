@@ -136,9 +136,10 @@ ntokens = len(corpus.dictionary)
 if args.continue_train:
     model = torch.load(os.path.join(args.save, 'model.pt'))
 else:
-    model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.num_factors * args.num_symbols, args.nlayers, args.num_factors,
-                       args.dropout, args.dropouth, args.dropouti, args.dropoute, args.wdrop, 
-                       args.tied, args.dropoutl, args.n_experts)
+    model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nhidlast,
+                           args.num_factors, args.num_symbols, args.nlayers,
+                           args.dropout, args.dropouth, args.dropouti, args.dropoute, args.wdrop,
+                           args.tied, args.dropoutl, args.n_experts)
 
 if args.cuda:
     if args.single_gpu:

@@ -11,7 +11,7 @@ from weight_drop import WeightDrop
 class RNNModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, rnn_type, ntoken, ninp, nhid, nhidlast, nlayers, split_size=10,
+    def __init__(self, rnn_type, ntoken, ninp, nhid, nhidlast, num_factors, num_sumbols, nlayers,
                  dropout=0.5, dropouth=0.5, dropouti=0.5, dropoute=0.1, wdrop=0, 
                  tie_weights=False, ldropout=0.5, n_experts=10):
         super(RNNModel, self).__init__()
@@ -27,7 +27,7 @@ class RNNModel(nn.Module):
 
         # self.prior = nn.Linear(nhidlast, n_experts, bias=False)
         # self.latent = nn.Sequential(nn.Linear(nhidlast, n_experts*ninp), nn.Tanh())
-        self.decoder = nn.Linear(ninp, ntoken)
+        self.decoder = nn.Linear(nhidlast, num_factors*num_sumbols)
 
         # Optionally tie weights as in:
         # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
@@ -56,7 +56,8 @@ class RNNModel(nn.Module):
         self.n_experts = n_experts
         self.ntoken = ntoken
 
-        self.split_size = split_size
+        self.num_sumbols = num_sumbols
+        self.num_factors = num_factors
 
         size = 0
         for p in self.parameters():
@@ -96,11 +97,12 @@ class RNNModel(nn.Module):
         output = self.lockdrop(raw_output, self.dropout if self.use_dropout else 0)
         outputs.append(output)
 
-        channel_sm_view = output.view(-1, self.nhidlast // self.split_size)
+        channel_sm_view = self.decoder(output)
+        channel_sm_view = channel_sm_view.view(-1, self.num_sumbols)
 
         # latent = self.latent(output)
         # latent = self.lockdrop(latent, self.dropoutl if self.use_dropout else 0)
-        # logit = self.decoder(latent.view(-1, self.ninp))
+
         #
         # prior_logit = self.prior(output).contiguous().view(-1, self.n_experts)
 
