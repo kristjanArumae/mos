@@ -171,8 +171,9 @@ def evaluate(data_source, batch_size=10):
             targets = targets.view(-1)
 
             log_prob, hidden = parallel_model(data, hidden)
-            loss = nn.functional.nll_loss(log_prob, targets).data
-
+            # loss = nn.functional.nll_loss(log_prob, targets).data
+            nll_out = nn.functional.nll_loss(log_prob, targets, reduce=False)
+            loss = nll_out.view(-1, args.num_factors).sum(dim=1).mean()
             total_loss += loss * len(data)
 
             hidden = repackage_hidden(hidden)
