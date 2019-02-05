@@ -210,13 +210,15 @@ def train():
             hidden[s_id] = repackage_hidden(hidden[s_id])
 
             log_prob, hidden[s_id], rnn_hs, dropped_rnn_hs = parallel_model(cur_data, hidden[s_id], return_h=True)
-            raw_loss = nn.functional.nll_loss(log_prob, cur_targets.view(-1))
+            nll_out = nn.functional.nll_loss(log_prob, cur_targets.view(-1), reduce=False)
+            raw_loss = nll_out.view(-1, args.num_factors).sum(dim=1).mean()
 
-            loss = raw_loss
+            # loss = raw_loss
             # Activiation Regularization
-            loss = loss + sum(args.alpha * dropped_rnn_h.pow(2).mean() for dropped_rnn_h in dropped_rnn_hs[-1:])
+            loss = raw_loss + sum(args.alpha * dropped_rnn_h.pow(2).mean() for dropped_rnn_h in dropped_rnn_hs[-1:])
             # Temporal Activation Regularization (slowness)
             loss = loss + sum(args.beta * (rnn_h[1:] - rnn_h[:-1]).pow(2).mean() for rnn_h in rnn_hs[-1:])
+
             loss *= args.small_batch_size / args.batch_size
             total_loss += raw_loss.data * args.small_batch_size / args.batch_size
             loss.backward()
